@@ -147,6 +147,10 @@ class OptimizationParams(ParamGroup):
         self.opacity_threshold_fine_after = 0.005
         self.batch_size=1
         self.add_point=False
+        self.use_mask_loss = False
+        self.w_fg = 1.0
+        self.w_bg = 0.1
+        self.mask_folder = "masks"
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):

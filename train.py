@@ -211,7 +211,8 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             # If at least one mask is available, use masked loss
             # Create fallback ones mask with correct shape [1, 1, H, W]
             fallback_shape = images[0].shape  # [1, C, H, W]
-            ones_mask = torch.ones(1, 1, fallback_shape[2], fallback_shape[3], device="cuda")
+            _, _, height, width = fallback_shape
+            ones_mask = torch.ones(1, 1, height, width, device="cuda")
             mask_tensor = torch.cat([m if m is not None else ones_mask for m in masks], 0)
         else:
             mask_tensor = None

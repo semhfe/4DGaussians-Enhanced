@@ -16,6 +16,140 @@
 ![block](assets/teaserfig.jpg)
 Our method converges very quickly and achieves real-time rendering speed.
 
+## 🎬 Enhanced Features
+
+This enhanced version adds **mask-weighted loss** functionality for improved dynamic scene reconstruction:
+
+### ✨ Key Features
+
+- **🎭 SAM2 Integration**: Automatic mask generation for dynamic scenes
+- **⚖️ Mask-Weighted Loss**: Separate foreground/background loss weights to reduce ghosting and improve sharpness
+- **📓 Colab Notebook**: Complete workflow in a single notebook with interactive mask preview
+- **🛠️ Mask Tools**: Utilities for mask inversion, hole filling, and temporal smoothing
+- **🎯 Training Presets**: Quick configurations for different quality/speed tradeoffs
+
+### 🚀 Quick Start with Colab
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/semhfe/4DGaussians-Enhanced/blob/main/notebooks/4DGS_Enhanced.ipynb)
+
+The enhanced Colab notebook provides:
+1. SAM2 mask generation with customizable prompts
+2. Interactive mask preview and validation
+3. Training with mask-weighted loss
+4. Automatic rendering and export
+
+### 📊 Mask-Weighted Loss
+
+The mask-weighted loss applies different weights to foreground and background pixels:
+
+```python
+# Enable mask-weighted loss
+python train.py --source_path <path> --model_path <output> \
+    --use_mask_loss \
+    --w_fg 1.0 \     # Foreground weight (higher = more important)
+    --w_bg 0.1       # Background weight (lower = less important)
+```
+
+**Benefits:**
+- Reduces ghosting/fog artifacts in background
+- Improves foreground subject sharpness
+- Better temporal consistency for moving subjects
+
+### 📁 Data Format with Masks
+
+Organize your data with masks in the following structure:
+
+```
+source_path/
+├── cam01/
+│   ├── frame_00001.jpg
+│   ├── frame_00002.jpg
+│   └── masks/
+│       ├── mask_00001.png
+│       ├── mask_00002.png
+│       └── ...
+├── cam02/
+│   ├── frame_00001.jpg
+│   └── masks/
+│       └── mask_00001.png
+└── ...
+```
+
+**Mask format:**
+- PNG format, grayscale
+- White (255) = foreground
+- Black (0) = background
+
+### 🛠️ Mask Generation & Tools
+
+#### Automatic Mask Generation with SAM2
+
+```python
+from utils.sam2_utils import generate_masks_for_scene
+
+generate_masks_for_scene(
+    source_path="/path/to/scene",
+    mask_folder="masks",
+    prompt="person,human",  # Detection prompt
+    threshold=0.5,          # Confidence threshold
+    every_n=1,              # Process every N frames
+    model_size="large"      # SAM2 model size
+)
+```
+
+#### Mask Troubleshooting Tools
+
+```bash
+# Invert masks (if foreground/background are swapped)
+python scripts/invert_masks.py --source_path <path> --inplace
+
+# Fill holes inside masks
+python scripts/fill_mask_holes.py --source_path <path> --kernel_size 5
+
+# Smooth masks temporally (reduce flickering)
+python scripts/smooth_masks.py --source_path <path> --window_size 3
+```
+
+### ⚙️ Training Presets
+
+Pre-configured settings for different scenarios:
+
+| Preset | Iterations | Time (A100) | Best For |
+|--------|-----------|-------------|----------|
+| `quick_test` | 14,000 | ~30 min | Fast testing, debugging |
+| `standard` | 30,000 | ~1.5 hours | Balanced quality/speed |
+| `high_quality` | 60,000 | ~3-4 hours | Best quality results |
+| `fast_motion` | 45,000 | ~2 hours | Dancing, fast actions |
+
+### 🔧 Command Line Usage
+
+```bash
+# Train with mask-weighted loss
+python train.py \
+    --source_path /path/to/scene \
+    --model_path /path/to/output \
+    --iterations 30000 \
+    --use_mask_loss \
+    --w_fg 1.0 \
+    --w_bg 0.1 \
+    --mask_folder masks
+
+# Render results
+python render.py \
+    --source_path /path/to/scene \
+    --model_path /path/to/output \
+    --iteration 30000
+```
+
+### 🔄 Backward Compatibility
+
+All enhancements are **fully backward compatible**:
+- Default behavior (`use_mask_loss=False`) is identical to the original repo
+- Works with or without masks
+- Gracefully falls back to standard loss when masks are unavailable
+
+---
+
 New Colab demo:[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1wz0D5Y9egAlcxXy8YO9UmpQ9oH51R7OW?usp=sharing) (Thanks [Tasmay-Tibrewal
 ](https://github.com/Tasmay-Tibrewal))
 
@@ -25,6 +159,8 @@ Light Gaussian implementation: [This link](https://github.com/pablodawson/4DGaus
 
 
 ## News
+
+2024.12: Added mask-weighted loss and SAM2 integration for enhanced reconstruction quality.
 
 2024.6.25: we clean the code and add an explanation of the parameters.
 

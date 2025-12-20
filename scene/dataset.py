@@ -21,11 +21,17 @@ class FourDGSdataset(Dataset):
 
         if self.dataset_type != "PanopticSports":
             try:
-                image, w2c, time = self.dataset[index]
+                # Try to unpack 4 values (with mask)
+                result = self.dataset[index]
+                if len(result) == 4:
+                    image, w2c, time, mask = result
+                else:
+                    # Fallback for datasets that don't return mask
+                    image, w2c, time = result
+                    mask = None
                 R,T = w2c
                 FovX = focal2fov(self.dataset.focal[0], image.shape[2])
                 FovY = focal2fov(self.dataset.focal[0], image.shape[1])
-                mask=None
             except:
                 caminfo = self.dataset[index]
                 image = caminfo.image

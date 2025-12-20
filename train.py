@@ -13,7 +13,7 @@ import random
 import os, sys
 import torch
 from random import randint
-from utils.loss_utils import l1_loss, ssim, l2_loss, lpips_loss
+from utils.loss_utils import l1_loss, ssim, l2_loss, lpips_loss, l1_loss_masked, ssim_masked
 from gaussian_renderer import render, network_gui
 import sys
 from scene import Scene, GaussianModel
@@ -30,6 +30,7 @@ import lpips
 from utils.scene_utils import render_training_image
 from time import time
 import copy
+from utils.mask_utils import preprocess_mask_for_loss
 
 to8b = lambda x : (255*np.clip(x.cpu().numpy(),0,1)).astype(np.uint8)
 
@@ -174,6 +175,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             pipe.debug = True
         images = []
         gt_images = []
+        masks = []
         radii_list = []
         visibility_filter_list = []
         viewspace_point_tensor_list = []
@@ -190,15 +192,33 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             radii_list.append(radii.unsqueeze(0))
             visibility_filter_list.append(visibility_filter.unsqueeze(0))
             viewspace_point_tensor_list.append(viewspace_point_tensor)
+            
+            # Collect mask if available
+            if hasattr(viewpoint_cam, 'mask') and viewpoint_cam.mask is not None:
+                mask = preprocess_mask_for_loss(viewpoint_cam.mask, gt_image.shape, device="cuda")
+                masks.append(mask)
+            else:
+                masks.append(None)
         
 
         radii = torch.cat(radii_list,0).max(dim=0).values
         visibility_filter = torch.cat(visibility_filter_list).any(dim=0)
         image_tensor = torch.cat(images,0)
         gt_image_tensor = torch.cat(gt_images,0)
+        
+        # Concatenate masks or None
+        if any(m is not None for m in masks):
+            # If at least one mask is available, use masked loss
+            mask_tensor = torch.cat([m if m is not None else torch.ones_like(images[0]) for m in masks], 0)
+        else:
+            mask_tensor = None
+        
         # Loss
         # breakpoint()
-        Ll1 = l1_loss(image_tensor, gt_image_tensor[:,:3,:,:])
+        if opt.use_mask_loss and mask_tensor is not None:
+            Ll1 = l1_loss_masked(image_tensor, gt_image_tensor[:,:3,:,:], mask_tensor, opt.w_fg, opt.w_bg)
+        else:
+            Ll1 = l1_loss(image_tensor, gt_image_tensor[:,:3,:,:])
 
         psnr_ = psnr(image_tensor, gt_image_tensor).mean().double()
         # norm
@@ -210,7 +230,10 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             tv_loss = gaussians.compute_regulation(hyper.time_smoothness_weight, hyper.l1_time_planes, hyper.plane_tv_weight)
             loss += tv_loss
         if opt.lambda_dssim != 0:
-            ssim_loss = ssim(image_tensor,gt_image_tensor)
+            if opt.use_mask_loss and mask_tensor is not None:
+                ssim_loss = ssim_masked(image_tensor, gt_image_tensor, mask_tensor)
+            else:
+                ssim_loss = ssim(image_tensor, gt_image_tensor)
             loss += opt.lambda_dssim * (1.0-ssim_loss)
         # if opt.lambda_lpips !=0:
         #     lpipsloss = lpips_loss(image_tensor,gt_image_tensor,lpips_model)

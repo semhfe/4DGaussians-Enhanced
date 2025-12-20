@@ -10,3 +10,4 @@ pytorch_msssim
 open3d
 imageio[ffmpeg]
 segment-anything-2
+opencv-python

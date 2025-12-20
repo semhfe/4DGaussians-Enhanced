@@ -17,16 +17,17 @@ from tqdm import tqdm
 import glob
 
 
-def load_sam2_model(model_size="large", device="cuda"):
+def load_sam2_model(model_size="large", device="cuda", checkpoint_dir="checkpoints"):
     """
     Load SAM2 model for automatic mask generation.
     
     Args:
         model_size (str): Model size - "large", "base", or "small"
         device (str): Device to load model on
+        checkpoint_dir (str): Directory containing SAM2 checkpoints
         
     Returns:
-        model: SAM2 model instance
+        model: SAM2 model instance or None if loading fails
     """
     try:
         from sam2.build_sam import build_sam2
@@ -44,7 +45,13 @@ def load_sam2_model(model_size="large", device="cuda"):
             model_size = "large"
         
         config = model_configs[model_size]
-        checkpoint = f"checkpoints/sam2_{model_size}.pt"
+        checkpoint = os.path.join(checkpoint_dir, f"sam2_{model_size}.pt")
+        
+        # Check if checkpoint exists
+        if not os.path.exists(checkpoint):
+            print(f"Error: Checkpoint not found at {checkpoint}")
+            print(f"Please download SAM2 checkpoints to {checkpoint_dir}/")
+            return None
         
         # Build model
         sam2_model = build_sam2(config, checkpoint, device=device)

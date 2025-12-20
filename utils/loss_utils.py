@@ -103,6 +103,9 @@ def ssim_masked(img1, img2, mask, window_size=11):
     Returns:
         torch.Tensor: Masked SSIM value
     """
+    # Small epsilon to prevent division by zero
+    EPSILON = 1e-8
+    
     channel = img1.size(-3)
     window = create_window(window_size, channel)
 
@@ -134,7 +137,7 @@ def ssim_masked(img1, img2, mask, window_size=11):
             mask = mask.expand(-1, ssim_map.size(1), -1, -1)
         
         # Weight SSIM map by mask
-        masked_ssim = (ssim_map * mask).sum() / (mask.sum() + 1e-8)
+        masked_ssim = (ssim_map * mask).sum() / (mask.sum() + EPSILON)
         return masked_ssim
     else:
         return ssim_map.mean()

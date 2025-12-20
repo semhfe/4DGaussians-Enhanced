@@ -7,6 +7,7 @@ from scene.colmap_loader import qvec2rotmat
 from scene.dataset_readers import CameraInfo
 from scene.neural_3D_dataset_NDC import get_spiral
 from torchvision import transforms as T
+from utils.mask_utils import get_mask_path_from_image_path, load_mask
 
 
 class multipleview_dataset(Dataset):
@@ -15,7 +16,8 @@ class multipleview_dataset(Dataset):
         cam_extrinsics,
         cam_intrinsics,
         cam_folder,
-        split
+        split,
+        mask_folder="masks"
     ):
         self.focal = [cam_intrinsics[1].params[0], cam_intrinsics[1].params[0]]
         height=cam_intrinsics[1].height
@@ -23,7 +25,8 @@ class multipleview_dataset(Dataset):
         self.FovY = focal2fov(self.focal[0], height)
         self.FovX = focal2fov(self.focal[0], width)
         self.transform = T.ToTensor()
-        self.image_paths, self.image_poses, self.image_times= self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
+        self.mask_folder = mask_folder
+        self.image_paths, self.image_poses, self.image_times, self.mask_paths = self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
         if split=="test":
             self.video_cam_infos=self.get_video_cam_infos(cam_folder)
         
@@ -34,6 +37,7 @@ class multipleview_dataset(Dataset):
         image_paths=[]
         image_poses=[]
         image_times=[]
+        mask_paths=[]
         for idx, key in enumerate(cam_extrinsics):
             extr = cam_extrinsics[key]
             R = np.transpose(qvec2rotmat(extr.qvec))
@@ -52,8 +56,12 @@ class multipleview_dataset(Dataset):
                 image_paths.append(image_path)
                 image_poses.append((R,T))
                 image_times.append(float(i/image_length))
+                
+                # Get corresponding mask path
+                mask_path = get_mask_path_from_image_path(image_path, self.mask_folder)
+                mask_paths.append(mask_path)
 
-        return image_paths, image_poses,image_times
+        return image_paths, image_poses, image_times, mask_paths
     
     def get_video_cam_infos(self,datadir):
         poses_arr = np.load(os.path.join(datadir, "poses_bounds_multipleview.npy"))
@@ -90,6 +98,11 @@ class multipleview_dataset(Dataset):
     def __getitem__(self, index):
         img = Image.open(self.image_paths[index])
         img = self.transform(img)
-        return img, self.image_poses[index], self.image_times[index]
+        
+        # Load mask if it exists
+        mask_path = self.mask_paths[index]
+        mask = load_mask(mask_path, target_size=(img.shape[1], img.shape[2]))
+        
+        return img, self.image_poses[index], self.image_times[index], mask
     def load_pose(self,index):
         return self.image_poses[index]

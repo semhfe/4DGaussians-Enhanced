@@ -65,6 +65,10 @@ def generate_masks_for_scene(source_path, mask_folder="masks", prompt="person,hu
     """
     Batch process all cameras and frames to generate masks using SAM2.
     
+    NOTE: This is a placeholder implementation that creates all-white masks.
+    For actual SAM2 segmentation, the model and inference code need to be properly
+    integrated. This placeholder allows the pipeline to work without SAM2 installed.
+    
     Args:
         source_path (str): Path to scene data (contains cam01, cam02, etc.)
         mask_folder (str): Name of subfolder to save masks in
@@ -77,6 +81,9 @@ def generate_masks_for_scene(source_path, mask_folder="masks", prompt="person,hu
     Returns:
         dict: Statistics about mask generation
     """
+    print("⚠️  WARNING: Using placeholder mask generation (all-white masks).")
+    print("    For actual SAM2 segmentation, SAM2 model integration is required.")
+    print()
     print("Loading SAM2 model...")
     predictor = load_sam2_model(model_size, device)
     
@@ -132,9 +139,8 @@ def generate_masks_for_scene(source_path, mask_folder="masks", prompt="person,hu
             image = Image.open(frame_path).convert("RGB")
             image_np = np.array(image)
             
-            # Generate mask using SAM2
-            # For now, create a simple placeholder mask
-            # In production, this would use SAM2's actual segmentation
+            # Generate mask using SAM2 (placeholder implementation)
+            # TODO: Replace with actual SAM2 inference
             height, width = image_np.shape[:2]
             mask = np.ones((height, width), dtype=np.uint8) * 255
             
@@ -162,17 +168,20 @@ def generate_mask_from_prompt(image_np, predictor, prompt, threshold=0.5):
     """
     Generate mask for a single image using text prompt.
     
+    NOTE: This is a placeholder implementation. For actual SAM2 inference,
+    implement the predictor-based segmentation logic here.
+    
     Args:
         image_np (np.array): Image array
-        predictor: SAM2 predictor instance
-        prompt (str): Detection prompt
-        threshold (float): Confidence threshold
+        predictor: SAM2 predictor instance (currently unused in placeholder)
+        prompt (str): Detection prompt (currently unused in placeholder)
+        threshold (float): Confidence threshold (currently unused in placeholder)
         
     Returns:
         np.array: Binary mask (0 or 255)
     """
-    # This is a placeholder for actual SAM2 inference
-    # In production, this would use the predictor to generate masks
+    # Placeholder: returns all-white mask
+    # TODO: Implement actual SAM2 inference using predictor
     height, width = image_np.shape[:2]
     mask = np.ones((height, width), dtype=np.uint8) * 255
     return mask

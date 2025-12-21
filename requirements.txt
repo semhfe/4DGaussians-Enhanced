@@ -1,13 +1,11 @@
-torch==1.13.1
-torchvision==0.14.1
-torchaudio==0.13.1
-mmcv==1.6.0
 matplotlib
-argparse
 lpips
 plyfile
 pytorch_msssim
 open3d
 imageio[ffmpeg]
-segment-anything-2
 opencv-python
+numpy<2.0.0
+ultralytics>=8.0.0
+supervision>=0.16.0
+huggingface_hub

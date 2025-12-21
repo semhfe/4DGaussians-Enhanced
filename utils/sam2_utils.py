@@ -17,6 +17,20 @@ from tqdm import tqdm
 import glob
 import cv2
 
+# Optional imports (may not be available until SAM2 is installed)
+try:
+    from sam2.build_sam import build_sam2
+    from sam2.sam2_image_predictor import SAM2ImagePredictor
+    SAM2_AVAILABLE = True
+except ImportError:
+    SAM2_AVAILABLE = False
+
+try:
+    from ultralytics import YOLO
+    YOLO_AVAILABLE = True
+except ImportError:
+    YOLO_AVAILABLE = False
+
 
 # Turkish to English class name aliases for YOLO
 CLASS_ALIASES = {
@@ -79,9 +93,11 @@ class SAM2MaskGenerator:
     
     def _load_sam2(self):
         """Load SAM2.1 model."""
+        if not SAM2_AVAILABLE:
+            print("❌ SAM2 not installed. Install with: pip install 'git+https://github.com/facebookresearch/sam2.git'")
+            return False
+        
         try:
-            from sam2.build_sam import build_sam2
-            from sam2.sam2_image_predictor import SAM2ImagePredictor
             
             # SAM2.1 config and checkpoint mapping
             model_configs = {
@@ -127,18 +143,17 @@ class SAM2MaskGenerator:
             print(f"✅ SAM2.1 model loaded successfully")
             return True
             
-        except ImportError as e:
-            print(f"❌ Failed to import SAM2: {e}")
-            print("   Install with: pip install 'git+https://github.com/facebookresearch/sam2.git'")
-            return False
         except Exception as e:
             print(f"❌ Error loading SAM2 model: {e}")
             return False
     
     def _load_yolo(self):
         """Load YOLO model for object detection."""
+        if not YOLO_AVAILABLE:
+            print("❌ ultralytics not installed. Install with: pip install ultralytics>=8.0.0")
+            return False
+        
         try:
-            from ultralytics import YOLO
             
             print("📦 Loading YOLO model...")
             # Use YOLOv8 medium for good balance of speed/accuracy
@@ -150,10 +165,6 @@ class SAM2MaskGenerator:
             
             print("✅ YOLO model loaded successfully")
             return True
-            
-        except ImportError:
-            print("❌ ultralytics not installed. Install with: pip install ultralytics>=8.0.0")
-            return False
         except Exception as e:
             print(f"❌ Error loading YOLO model: {e}")
             return False
@@ -171,8 +182,10 @@ class SAM2MaskGenerator:
             np.array: Binary mask (0 or 255), shape (H, W)
         """
         if self.sam2_predictor is None or self.yolo_model is None:
-            print("⚠️  Models not loaded, returning empty mask")
-            return np.zeros(image_np.shape[:2], dtype=np.uint8)
+            raise RuntimeError(
+                "Models not loaded properly. SAM2 or YOLO initialization failed. "
+                "Check earlier error messages for details."
+            )
         
         height, width = image_np.shape[:2]
         
@@ -191,16 +204,17 @@ class SAM2MaskGenerator:
         # Filter detections by prompt classes and threshold
         boxes = []
         if result.boxes is not None:
-            for box in result.boxes:
-                conf = float(box.conf[0])
-                cls_id = int(box.cls[0])
-                cls_name = result.names[cls_id]
+            # Batch convert tensors to CPU/numpy to reduce overhead
+            boxes_xyxy = result.boxes.xyxy.cpu().numpy() if result.boxes.xyxy.is_cuda else result.boxes.xyxy.numpy()
+            confs = result.boxes.conf.cpu().numpy() if result.boxes.conf.is_cuda else result.boxes.conf.numpy()
+            cls_ids = result.boxes.cls.cpu().numpy() if result.boxes.cls.is_cuda else result.boxes.cls.numpy()
+            
+            for i, (box, conf, cls_id) in enumerate(zip(boxes_xyxy, confs, cls_ids)):
+                cls_name = result.names[int(cls_id)]
                 
                 # Check if class matches prompt
-                if cls_name in prompt_classes and conf >= threshold:
-                    # Get box coordinates (xyxy format)
-                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                    boxes.append([x1, y1, x2, y2])
+                if cls_name in prompt_classes and float(conf) >= threshold:
+                    boxes.append(box.tolist())
         
         if len(boxes) == 0:
             # No matching detections

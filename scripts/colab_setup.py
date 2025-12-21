@@ -60,7 +60,7 @@ def patch_cpp_files():
     
     for filepath in files_to_patch:
         try:
-            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
                 content = f.read()
             
             original_content = content

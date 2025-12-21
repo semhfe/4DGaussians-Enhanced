@@ -138,23 +138,35 @@ def download_sam2_model_hf(model_size, checkpoint_dir="checkpoints"):
     try:
         # Use huggingface_hub to download
         from huggingface_hub import hf_hub_download
+        import shutil
         
         print(f"📥 Downloading from HuggingFace: {hf_repo}")
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         
-        downloaded_path = hf_hub_download(
-            repo_id=hf_repo,
-            filename="model.safetensors",  # SAM2.1 uses safetensors
-            local_dir=str(checkpoint_path.parent),
-            local_dir_use_symlinks=False,
-        )
+        # Try to download the model checkpoint
+        # SAM2.1 models may be stored as .pt or .safetensors
+        for model_filename in ["model.pt", "model.safetensors", f"{model_size}.pt"]:
+            try:
+                downloaded_path = hf_hub_download(
+                    repo_id=hf_repo,
+                    filename=model_filename,
+                    local_dir=str(checkpoint_path.parent),
+                    local_dir_use_symlinks=False,
+                )
+                
+                # Rename to expected filename
+                if downloaded_path and os.path.exists(downloaded_path):
+                    shutil.move(downloaded_path, str(checkpoint_path))
+                    print(f"✅ Downloaded model: {filename}")
+                    return True
+            except Exception as e:
+                # Try next filename
+                continue
         
-        # Rename to expected filename
-        if downloaded_path:
-            import shutil
-            shutil.move(downloaded_path, str(checkpoint_path))
-            print(f"✅ Downloaded model: {filename}")
-            return True
+        # If we got here, none of the filenames worked
+        print(f"❌ Could not find model file in {hf_repo}")
+        print(f"   Tried: model.pt, model.safetensors, {model_size}.pt")
+        return False
         
     except ImportError:
         print("❌ huggingface_hub not installed. Install with: pip install huggingface_hub")
